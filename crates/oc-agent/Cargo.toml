@@ -8,12 +8,27 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[lib]
+name = "oc_agent"
+path = "src/lib.rs"
+
 [[bin]]
 name = "ocxd"
 path = "src/main.rs"
 
 [dependencies]
 oc-core.workspace = true
+oc-identity.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

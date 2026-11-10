@@ -19,4 +19,34 @@ unsafe_code = "deny"
 [workspace.dependencies]
 oc-core = { path = "crates/oc-core" }
 oc-proto = { path = "crates/oc-proto" }
+oc-identity = { path = "crates/oc-identity" }
 oc-net = { path = "crates/oc-net" }
+oc-inventory = { path = "crates/oc-inventory" }
+oc-agent = { path = "crates/oc-agent" }
+
+anyhow = "1"
+async-trait = "0.1"
+blake3 = "1.8"
+clap = { version = "4.6", features = ["derive", "env"] }
+ed25519-dalek = "3"
+getrandom = "0.4"
+iroh = "1.4"
+iroh-mdns-address-lookup = "0.6"
+keyring = "4.2"
+n0-future = "0.3"
+nvml-wrapper = "0.13"
+prost = "0.14"
+prost-build = "0.14"
+proptest = "1"
+protox = "0.10"
+rusqlite = { version = "0.41", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "0.40"
+tempfile = "3"
+thiserror = "2"
+tokio = "1.49"
+toml = "1.2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+zeroize = "1.9"
