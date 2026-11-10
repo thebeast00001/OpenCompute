@@ -1,0 +1,5 @@
+# Tracks stable for now. Pin an exact version at the first tagged release.
+# Minimum supported Rust is set in Cargo.toml (rust-version), driven by iroh.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

@@ -1,0 +1,12 @@
+[package]
+name = "oc-net"
+description = "Transport abstraction for OpenCompute: iroh and simulated networks."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

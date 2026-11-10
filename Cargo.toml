@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+# Spikes are throwaway experiments with heavy dependencies; they build separately.
+exclude = ["spikes"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.91"
+license = "Apache-2.0"
+repository = "https://github.com/thebeast00001/OpenCompute"
+publish = false
+
+[workspace.lints.rust]
+# OS-integration modules that need unsafe opt in explicitly, one module at a time.
+unsafe_code = "deny"
+
+[workspace.dependencies]
+oc-core = { path = "crates/oc-core" }
+oc-proto = { path = "crates/oc-proto" }
+oc-net = { path = "crates/oc-net" }

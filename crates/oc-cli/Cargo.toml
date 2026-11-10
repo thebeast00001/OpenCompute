@@ -1,0 +1,19 @@
+[package]
+name = "oc-cli"
+description = "The OpenCompute command-line tool (ocx)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "ocx"
+path = "src/main.rs"
+
+[dependencies]
+oc-core.workspace = true
+
+[lints]
+workspace = true
