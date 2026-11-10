@@ -2,7 +2,7 @@
 
 *10 November 2026. Read [FEASIBILITY.md](FEASIBILITY.md) first; this plan builds only what that review found practical.*
 
-This document is the specification to build from. Milestone 0 is under way: the repository, workspace skeleton and CI exist, and three of the four spikes have run. Their results are in [spikes/README.md](spikes/README.md) and are folded into the sections below.
+This document is the specification to build from. Milestone 0 is under way: the repository, workspace skeleton and CI exist, and all four spikes have run on the development laptop. Two of them still need repeating across two real machines. Their results are in [spikes/README.md](spikes/README.md) and are folded into the sections below.
 
 ---
 
@@ -230,7 +230,10 @@ Built on llama.cpp; no custom tensor runtime.
   2. **Replicas:** the same model on several devices, with the gateway balancing requests. Throughput scales with devices.
   3. **Split:** `ggml-rpc-server` on the helper devices and `llama-server --rpc` on the lead device. Experimental.
 - **Securing split mode:** llama.cpp's RPC server has no authentication, by its own documentation. Ours binds only to `127.0.0.1`, and traffic between devices goes through `oc/tunnel/1`, which is encrypted and restricted to roster members.
-- **Split planner:** reads layer sizes from the GGUF file, estimates context memory, and combines free VRAM, free RAM and measured link speeds to choose which devices take part and the `--tensor-split` values. It estimates tokens per second, drops devices that would slow the result, and refuses to split over relayed or slow links.
+- **Split planner:** reads layer sizes from the GGUF file, estimates context memory, and combines free VRAM, free RAM and measured link speeds to choose which devices take part and the `--tensor-split` values. It estimates tokens per second, drops devices that would slow the result, and refuses a split it predicts will be slower than CPU offload.
+- **Device order (from Spike 2):** remote devices run the first layers; the device that receives the request runs the last layers and produces the output. The output vector is as large as the model's vocabulary (about 0.6 MB per token for a 7B Qwen model), so it must not cross the network. On an emulated poor Wi-Fi link this order gave 30.7 tokens per second against 9.3 for the reverse.
+- **Speed estimate (from Spike 2):** time per generated token is compute time, plus the link's round-trip time for each hand-over, plus the bytes that cross divided by measured bandwidth. Prompt processing moves more data in the remote-first order, so the planner weighs prompt length against expected answer length on slow links.
+- **First load of a split model:** the lead device uploads the remote half's weights through the RPC connection, which takes as long as the link needs (minutes on slow Wi-Fi). The RPC server's disk cache stays on so this happens once per model, and the dashboard shows it as progress. Filling that cache from the device's own copy of the model file is a later optimisation.
 - **Batch helpers:** fan-out jobs for embeddings and for transcription with whisper.cpp. These are ordinary tasks, and they are where several GPUs give a real speedup.
 
 ### 4.10 Files and storage
@@ -550,7 +553,8 @@ None of these block Milestone 0. Defaults are in bold.
 - [x] Spike 4 (inventory).
 - [x] Spike 3 (Job Objects) on Windows.
 - [x] Spike 1 (iroh) between two processes on this laptop.
+- [x] Spike 2 (split inference) on this laptop, with one GPU standing in for two and the link emulated.
 - [ ] Spike 1 between two machines on the home Wi-Fi.
+- [ ] Spike 2 between two machines with a GPU each.
 - [ ] Spike 3 on Linux.
-- [ ] Spike 2 (split inference): download a llama.cpp CUDA release and a model, then measure.
-- [ ] Decide Gate A.
+- [ ] Decide Gate A. Both halves are provisionally "yes"; each waits on its two-machine run.

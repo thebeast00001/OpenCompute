@@ -2870,6 +2870,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "spike-linkemu"
+version = "0.0.0"
+
+[[package]]
 name = "spike-net"
 version = "0.0.0"
 dependencies = [

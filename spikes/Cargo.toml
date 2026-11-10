@@ -2,7 +2,7 @@
 # Built separately from the main workspace. Results are in docs/spikes/.
 [workspace]
 resolver = "3"
-members = ["inventory", "joblimits", "net-iroh"]
+members = ["inventory", "joblimits", "linkemu", "net-iroh"]
 
 [workspace.package]
 edition = "2024"

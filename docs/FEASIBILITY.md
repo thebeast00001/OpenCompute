@@ -91,6 +91,8 @@ What this means:
 - **There is one case where splitting should win on ordinary PCs:** a model too big for one GPU but small enough for two. The single-machine alternative is spilling layers onto the CPU, which is far slower than a second GPU over a wired link. This is exactly the case of an 8 GB laptop GPU plus a second GPU machine. It is plausible but not proven by the sources above, so it is the first thing the plan measures (Milestone 0).
 - **llama.cpp's own documentation calls its RPC mode "fragile and insecure" and says never to run it on an open network.** Wrapping it in authenticated, encrypted connections is a real contribution, not just packaging.
 
+*Update from Milestone 0:* that first measurement has been made, with one GPU standing in for two and the network emulated. Split inference ran 2.3× to 3.6× faster than CPU offload, provided the remote device runs the first half of the model. The details and limits are in [spikes/README.md](spikes/README.md). It still needs repeating on two real machines.
+
 The trillion-parameter table in the summary should be deleted. At 500 GB for the smallest format, it is unrelated to anything this hardware class can do, and it sets the wrong expectation.
 
 ## 6. Who already does this

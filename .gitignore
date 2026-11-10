@@ -13,6 +13,9 @@ dist/
 # AI model files are large and are never committed
 *.gguf
 
+# Downloaded tools and models used by the spikes
+.spike-cache/
+
 # OS noise
 .DS_Store
 Thumbs.db
