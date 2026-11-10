@@ -2,7 +2,7 @@
 
 *10 November 2026. Read [FEASIBILITY.md](FEASIBILITY.md) first; this plan builds only what that review found practical.*
 
-No code exists yet. This document is the specification to build from.
+This document is the specification to build from. Milestone 0 is under way: the repository, workspace skeleton and CI exist, and three of the four spikes have run. Their results are in [spikes/README.md](spikes/README.md) and are folded into the sections below.
 
 ---
 
@@ -73,10 +73,12 @@ Every device runs the same agent. There is no separate server.
 ### 4.2 Networking
 
 - **Library:** iroh 1.x. It provides QUIC transport, TLS 1.3 keyed to device identities, NAT hole punching and relay fallback.
-- **Discovery on the LAN:** mDNS through iroh's `iroh-mdns-address-lookup` crate (it is opt-in, not part of the default preset).
+- **LAN-only by default:** endpoints use iroh's `Minimal` preset, with no relay and no public address-lookup service. iroh's `N0` preset publishes a device's addresses to a public discovery service, so it is used only when the user turns on remote access. Spike 1 confirmed that two endpoints find and dial each other this way.
+- **Discovery on the LAN:** mDNS through iroh's `iroh-mdns-address-lookup` crate, under our own service name so other iroh apps on the network are ignored.
+- **Parallel connections for bulk data:** Spike 1 measured about 1 Gbit/s on one iroh connection on the development laptop. Extra streams on the same connection added nothing; separate connections scaled. Large transfers open several connections when the link is faster than one can fill.
 - **When discovery is blocked** (college and guest Wi-Fi often isolate clients): add a device by pasting its address ticket, or let iroh connect through a relay.
 - **Relays:** n0's public relays are documented as for development and testing only. Use them during development. Before public release, run our own `iroh-relay` on a small server and make the relay address configurable so users can host theirs.
-- **Ports:** a fixed default UDP port for iroh (7422) so firewall rules are predictable; UDP 5353 for mDNS. The first launch on Windows triggers a firewall prompt; the onboarding screen explains it and `ocx doctor` verifies the result.
+- **Ports:** a fixed default UDP port for iroh (7422) so firewall rules are predictable; UDP 5353 for mDNS. The first launch on Windows triggers a firewall prompt; the onboarding screen explains it and `ocx doctor` verifies that the rule covers the network profile in use. Many home networks, including the development laptop's, are set to "Public".
 - **Topology:** full mesh. Every device keeps one connection to every other. Designed for 2–16 devices.
 - **Liveness:** heartbeat every second on the control stream. A peer is *suspect* after 5 seconds of silence and *down* after 15. A device about to sleep or shut down sends a goodbye so peers react within a second (Windows: `RegisterSuspendResumeNotification`).
 - **Link measurement:** at pairing, and every 10 minutes while idle, each pair measures round-trip time and throughput with a 16 MB burst, and records whether the path is direct or relayed. The scheduler reads these numbers. Data-heavy placements over relayed paths are refused.
@@ -100,7 +102,8 @@ The number in the ALPN is the major version. Minor capabilities are negotiated i
 ### 4.4 Inventory and metrics
 
 - **Static inventory**, collected at start and on hardware change: OS and version, CPU model, cores and threads, RAM, disks (size, free, SSD or HDD), GPUs (vendor, model, VRAM, driver, compute backends available), network adapters and link rates, battery presence.
-- **Sources:** the `sysinfo` crate for CPU, RAM, disk and network. GPUs: NVML through `nvml-wrapper` for NVIDIA; DXGI on Windows for every vendor; sysfs on Linux for AMD and Intel; Metal on macOS. Never use Windows' `Win32_VideoController.AdapterRAM`: on the development laptop it reports 4 GB for an 8 GB card.
+- **Sources:** the `sysinfo` crate for CPU, RAM and disk; the Windows IP Helper API for adapter link rates. GPUs: NVML through `nvml-wrapper` for NVIDIA; DXGI on Windows for every vendor; sysfs on Linux for AMD and Intel; Metal on macOS. Never use Windows' `Win32_VideoController.AdapterRAM`: on the development laptop it reports 4 GB for an 8 GB card. `sysinfo`'s own GPU module reports total VRAM but no live usage, so it is not used for GPUs.
+- **Temperature:** GPU temperature comes from NVML. CPU temperature is not readable by an ordinary process on Windows, so thermal rules there use GPU temperature.
 - **Live metrics**, sampled once per second: CPU use per core, RAM used, GPU use, VRAM used, GPU temperature and power draw, disk and network throughput, battery level and whether on mains power.
 - **Storage:** the last hour at 1-second resolution in memory; 1-minute roll-ups for 30 days in SQLite.
 - **Calibration:** a 10-second benchmark on first run produces a CPU score (single and multi-core) and a GPU score. The scheduler starts from these and refines them from real task durations.
@@ -195,7 +198,8 @@ It picks the smallest. Ties go to the device that needs the fewest bytes moved, 
 | **WebAssembly** | Sandboxed, portable modules through `wasmtime`. | Later |
 
 - **Python environments:** a task names its environment as a Python version plus a lockfile hash. The agent builds it once with `uv` (which also installs the right Python) and caches it by hash. This removes the usual "same packages on every machine" problem. Pin workers to a widely supported Python (3.12 or 3.13); the development laptop's 3.14 is still marked experimental by libraries such as Ray.
-- **Resource limits:** Windows Job Objects (CPU rate, memory cap, kill all children when the job closes); Linux cgroups v2 through a systemd user scope; macOS resource limits and background QoS.
+- **Resource limits:** Windows Job Objects (CPU rate, memory cap, kill all children when the job closes); Linux cgroups v2 through a systemd user scope; macOS resource limits and background QoS. Spike 3 confirmed all three behaviours on Windows.
+- **Windows details from Spike 3:** the task process is created inside its job from the start, so no child can escape. A memory cap makes allocations fail instead of killing the task, so the runtime listens for the job's memory-limit notification and reports "memory limit exceeded". CPU rate control cannot be switched off on a job that never had it on, so the runtime tracks whether a cap is set.
 - **Priority:** task processes run at low OS priority by default.
 - **GPUs:** a GPU is granted whole to one task by default. Inference services may share a GPU within a VRAM budget.
 - **Keep-awake:** while tasks run and policy allows, the agent asks the OS not to sleep (Windows: `SetThreadExecutionState`).
@@ -211,7 +215,7 @@ Per device, set in the dashboard:
   - A full-screen app or game starts (Windows `SHQueryUserNotificationState`): release the GPU.
   - On battery: accept no work by default.
   - Temperature above the threshold: pause until it drops.
-- **How yielding happens,** in order: lower priority, suspend, then cancel and let the owner reschedule elsewhere.
+- **How yielding happens,** in order: lower the CPU cap on the running task, pause it (the minimum cap, which Spike 3 measured at about 0.5% of the machine), then cancel and let the owner reschedule elsewhere. The cap can be changed while the task runs.
 - **Who may submit:** which roles or specific devices this device accepts work from.
 
 ### 4.9 AI mesh
@@ -312,17 +316,9 @@ Out of scope for version 1: defending against malicious code a user chooses to r
 
 ## 6. Repository and tooling
 
-### 6.1 First step: fix the git setup
+### 6.1 Git setup (done)
 
-`C:\Users\Ansh Tyagi\OpenCompute` is currently inside a git repository rooted at the home folder, whose remote is `ENT-REIMAGINE`. A commit made here today would go into that repository. Before anything else:
-
-```bash
-cd "C:/Users/Ansh Tyagi/OpenCompute"
-git init -b main
-git remote add origin https://github.com/thebeast00001/OpenCompute.git
-```
-
-The GitHub repository is empty, so the first push creates `main`.
+The project folder has its own git repository, with `origin` set to `https://github.com/thebeast00001/OpenCompute.git` and `main` as the default branch. It was created with `git init` inside the project folder so that commands run there affect only this project.
 
 ### 6.2 Layout
 
@@ -388,6 +384,7 @@ Mapping from the summary's layout: `core/*` becomes `crates/oc-*`; `coordinator`
 
 - Licence: Apache-2.0.
 - Rust: `cargo fmt`, `clippy` with warnings as errors, no `unsafe` outside the OS-integration modules.
+- Windows toolchains: release builds come from CI with MSVC. Local development also works with MinGW-w64 and Rust's GNU toolchain, which is what the development laptop uses. The Tauri desktop app (Milestone 4) needs Microsoft C++ Build Tools installed locally.
 - CI on every push: format, lint, unit tests, and a 3-agent integration test, on Windows, Ubuntu and macOS runners.
 - Commits small and descriptive; `main` always builds.
 
@@ -498,7 +495,7 @@ WebAssembly tasks; automatic ownership hand-off; smarter split planning for mixe
 
 ### 8.2 Developing with one laptop
 
-Most development needs only this laptop: the simulator, the multi-agent mode and WSL 2. A second physical machine is required to finish Milestone 1 (real pairing, real links, real firewall behaviour) and is needed for every exit test after that.
+Most development needs only this laptop: the simulator and the multi-agent mode. Linux testing on the laptop needs a WSL distribution or Docker set up first; neither is ready today, and CI covers Linux and macOS in the meantime. A second physical machine is required to finish Milestone 1 (real pairing, real links, real firewall behaviour) and is needed for every exit test after that.
 
 ### 8.3 Benchmarks
 
@@ -543,14 +540,17 @@ None of these block Milestone 0. Defaults are in bold.
 3. **Dashboard framework.** **React with Vite**, or Next.js with static export.
 4. **Order.** **AI mesh before folder sync** (this plan), or the summary's original order.
 5. **Licence.** **Apache-2.0**, or MIT.
+6. **Microsoft C++ Build Tools.** Not needed until Milestone 4. Installing them (about 6–7 GB) is required before the desktop app can be built on this laptop.
 
-## 12. First week checklist
+## 12. Milestone 0 checklist
 
-1. `git init` inside `OpenCompute`, add the remote, commit `docs/`, push.
-2. Create the Cargo workspace with empty `oc-core`, `oc-proto`, `oc-net`, `oc-agent`, `oc-cli` crates and confirm `cargo build` works on this laptop.
-3. Add CI for format, lint and tests on Windows, Ubuntu and macOS.
-4. Run Spike 4 (inventory) — it needs only this laptop.
-5. Run Spike 3 (Job Objects) — also this laptop only.
-6. Run Spike 1 (iroh) between Windows and WSL 2, then between two machines when available.
-7. Download a llama.cpp CUDA release and run Spike 2.
-8. Write up results in `docs/spikes/` and decide Gate A.
+- [x] `git init` inside `OpenCompute`, add the remote, commit, push.
+- [x] Create the Cargo workspace with placeholder `oc-core`, `oc-proto`, `oc-net`, `oc-agent`, `oc-cli` crates and confirm it builds on this laptop.
+- [x] Add CI for format, lint and tests on Windows, Ubuntu and macOS. First run passed.
+- [x] Spike 4 (inventory).
+- [x] Spike 3 (Job Objects) on Windows.
+- [x] Spike 1 (iroh) between two processes on this laptop.
+- [ ] Spike 1 between two machines on the home Wi-Fi.
+- [ ] Spike 3 on Linux.
+- [ ] Spike 2 (split inference): download a llama.cpp CUDA release and a model, then measure.
+- [ ] Decide Gate A.

@@ -1,0 +1,10 @@
+# Milestone 0 spikes: throwaway experiments that test risky assumptions.
+# Built separately from the main workspace. Results are in docs/spikes/.
+[workspace]
+resolver = "3"
+members = ["inventory", "joblimits", "net-iroh"]
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+publish = false
